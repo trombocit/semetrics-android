@@ -21,7 +21,7 @@ internal class NetworkTransport(
         .readTimeout(10, TimeUnit.SECONDS)
         .build()
 
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val batchUrl = endpoint.trimEnd('/') + "/ingest/batch"
     private val contentType = "application/json; charset=utf-8".toMediaType()
 
