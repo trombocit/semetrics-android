@@ -2,6 +2,7 @@ package ru.semetrics.sdk
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 /** Сериализуемое событие для отправки на сервер. */
 @Serializable
@@ -13,7 +14,7 @@ internal data class EventPayload(
     val platform: String = "android",
     @SerialName("sdk_version")  val sdkVersion: String = BuildConfig.SDK_VERSION,
     @SerialName("client_ts")    val clientTs: String,   // ISO-8601
-    val properties: Map<String, String>? = null,        // JSON-строки значений
+    val properties: Map<String, JsonElement>? = null,
 )
 
 /** Батч для POST /ingest/batch */
@@ -36,5 +37,5 @@ internal data class ServerResponse(
 
 /** Версия SDK, подставляется через buildConfigField в build.gradle.kts */
 internal object BuildConfig {
-    const val SDK_VERSION = "0.1.0"
+    const val SDK_VERSION = "0.2.0"
 }

@@ -78,8 +78,7 @@ object Semetrics {
         }
 
         val propertiesJson = properties
-            ?.mapValues { it.value.toString() }
-            ?.let { JSONObject(it).toString() }
+            ?.let { JSONObject(it as Map<*, *>).toString() }
 
         scope.launch {
             val db = EventDatabase.getInstance(cfg.context)

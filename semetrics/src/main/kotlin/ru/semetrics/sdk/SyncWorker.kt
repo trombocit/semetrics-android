@@ -6,7 +6,8 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 
 private const val TAG = "SemetricsSync"
 private const val BATCH_SIZE = 50
@@ -58,10 +59,10 @@ internal class SyncWorker(
         )
     }
 
-    /** Парсит JSON-объект с строковыми значениями в Map<String, String>. */
-    private fun parseSimpleJson(json: String): Map<String, String>? {
+    private fun parseSimpleJson(json: String): Map<String, JsonElement>? {
         if (json.isBlank() || json == "{}") return null
-        val obj = JSONObject(json)
-        return obj.keys().asSequence().associateWith { obj.getString(it) }
+        return runCatching {
+            Json.decodeFromString<Map<String, JsonElement>>(json)
+        }.getOrNull()
     }
 }
