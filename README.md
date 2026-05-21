@@ -20,7 +20,7 @@ dependencyResolutionManagement {
 `build.gradle.kts` (app):
 ```kotlin
 dependencies {
-    implementation("com.github.trombocit.semetrics-android:semetrics:VERSION")
+    implementation("com.github.trombocit.semetrics-android:semetrics:0.3.0")
 }
 ```
 
@@ -35,6 +35,7 @@ class MyApplication : Application() {
             context = applicationContext,
             apiKey = "sm_live_ваш_ключ",
             endpoint = "https://semetrics.ru/events",
+            sourceId = applicationContext.packageName,   // "com.bv.wfm"
         )
     }
 }
@@ -56,6 +57,7 @@ Semetrics.track(
 | `context` | обязательный | ApplicationContext |
 | `apiKey` | обязательный | API-ключ проекта |
 | `endpoint` | `https://semetrics.ru/events` | URL сервиса |
+| `sourceId` | `null` | Идентификатор источника (`applicationContext.packageName`) |
 | `syncIntervalMinutes` | `15` | Интервал периодической синхронизации |
 
 ## Гарантия доставки

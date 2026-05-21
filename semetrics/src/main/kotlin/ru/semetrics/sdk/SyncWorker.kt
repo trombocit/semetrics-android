@@ -54,6 +54,7 @@ internal class SyncWorker(
             userId = userId,
             anonymousId = anonymousId,
             sessionId = sessionId,
+            sourceId = sourceId,
             clientTs = clientTs,
             properties = props,
         )

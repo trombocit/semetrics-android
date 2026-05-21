@@ -2,6 +2,8 @@ package ru.semetrics.sdk
 
 import android.content.Context
 import androidx.room.*
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 /** Сущность в базе данных — одно ожидающее событие. */
 @Entity(tableName = "queued_events")
@@ -11,6 +13,7 @@ internal data class QueuedEvent(
     val userId: String?,
     val anonymousId: String?,
     val sessionId: String?,
+    val sourceId: String?,          // задаётся при инициализации SDK
     val propertiesJson: String?,    // JSON-строка словаря свойств
     val clientTs: String,           // ISO-8601
     val createdAt: Long = System.currentTimeMillis(),
@@ -31,7 +34,13 @@ internal interface EventDao {
     suspend fun count(): Int
 }
 
-@Database(entities = [QueuedEvent::class], version = 1, exportSchema = false)
+private val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE queued_events ADD COLUMN sourceId TEXT")
+    }
+}
+
+@Database(entities = [QueuedEvent::class], version = 2, exportSchema = false)
 internal abstract class EventDatabase : RoomDatabase() {
     abstract fun eventDao(): EventDao
 
@@ -44,7 +53,7 @@ internal abstract class EventDatabase : RoomDatabase() {
                     context.applicationContext,
                     EventDatabase::class.java,
                     "semetrics_queue.db",
-                ).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2).build().also { instance = it }
             }
     }
 }

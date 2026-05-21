@@ -43,6 +43,7 @@ object Semetrics {
         val context: Context,
         val apiKey: String,
         val endpoint: String,
+        val sourceId: String?,
     )
 
     // MARK: - Публичный API
@@ -55,9 +56,10 @@ object Semetrics {
         context: Context,
         apiKey: String,
         endpoint: String = "https://semetrics.ru/events",
+        sourceId: String? = null,
         syncIntervalMinutes: Long = 15,
     ) {
-        config = Config(context.applicationContext, apiKey, endpoint)
+        config = Config(context.applicationContext, apiKey, endpoint, sourceId)
         schedulePeriodicSync(context, apiKey, endpoint, syncIntervalMinutes)
         Log.d(TAG, "SDK инициализирован.")
     }
@@ -88,6 +90,7 @@ object Semetrics {
                     userId = userId,
                     anonymousId = anonymousId,
                     sessionId = sessionId,
+                    sourceId = cfg.sourceId,
                     propertiesJson = propertiesJson,
                     clientTs = isoFormatter.format(Instant.now()),
                 )
@@ -100,7 +103,7 @@ object Semetrics {
      */
     fun flush() {
         val cfg = config ?: return
-        val data = workData(cfg.apiKey, cfg.endpoint)
+        val data = workData(cfg.apiKey, cfg.endpoint, cfg.sourceId)
         val work = OneTimeWorkRequestBuilder<SyncWorker>()
             .setInputData(data)
             .setConstraints(networkConstraints())
@@ -116,7 +119,7 @@ object Semetrics {
         endpoint: String,
         intervalMinutes: Long,
     ) {
-        val data = workData(apiKey, endpoint)
+        val data = workData(apiKey, endpoint, config?.sourceId)
         val work = PeriodicWorkRequestBuilder<SyncWorker>(intervalMinutes, TimeUnit.MINUTES)
             .setInputData(data)
             .setConstraints(networkConstraints())
@@ -134,6 +137,6 @@ object Semetrics {
         .setRequiredNetworkType(NetworkType.CONNECTED)
         .build()
 
-    private fun workData(apiKey: String, endpoint: String): Data =
-        workDataOf("api_key" to apiKey, "endpoint" to endpoint)
+    private fun workData(apiKey: String, endpoint: String, sourceId: String?): Data =
+        workDataOf("api_key" to apiKey, "endpoint" to endpoint, "source_id" to sourceId)
 }
