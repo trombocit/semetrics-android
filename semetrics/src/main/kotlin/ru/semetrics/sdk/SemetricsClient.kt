@@ -44,6 +44,7 @@ object Semetrics {
         val apiKey: String,
         val endpoint: String,
         val sourceId: String?,
+        val sourceVersion: String?,
     )
 
     // MARK: - Публичный API
@@ -57,9 +58,10 @@ object Semetrics {
         apiKey: String,
         endpoint: String = "https://semetrics.ru/events",
         sourceId: String? = null,
+        sourceVersion: String? = null,
         syncIntervalMinutes: Long = 15,
     ) {
-        config = Config(context.applicationContext, apiKey, endpoint, sourceId)
+        config = Config(context.applicationContext, apiKey, endpoint, sourceId, sourceVersion)
         schedulePeriodicSync(context, apiKey, endpoint, syncIntervalMinutes)
         Log.d(TAG, "SDK инициализирован.")
     }
@@ -91,6 +93,7 @@ object Semetrics {
                     anonymousId = anonymousId,
                     sessionId = sessionId,
                     sourceId = cfg.sourceId,
+                    sourceVersion = cfg.sourceVersion,
                     propertiesJson = propertiesJson,
                     clientTs = isoFormatter.format(Instant.now()),
                 )
@@ -103,7 +106,7 @@ object Semetrics {
      */
     fun flush() {
         val cfg = config ?: return
-        val data = workData(cfg.apiKey, cfg.endpoint, cfg.sourceId)
+        val data = workData(cfg.apiKey, cfg.endpoint, cfg.sourceId, cfg.sourceVersion)
         val work = OneTimeWorkRequestBuilder<SyncWorker>()
             .setInputData(data)
             .setConstraints(networkConstraints())
@@ -119,7 +122,7 @@ object Semetrics {
         endpoint: String,
         intervalMinutes: Long,
     ) {
-        val data = workData(apiKey, endpoint, config?.sourceId)
+        val data = workData(apiKey, endpoint, config?.sourceId, config?.sourceVersion)
         val work = PeriodicWorkRequestBuilder<SyncWorker>(intervalMinutes, TimeUnit.MINUTES)
             .setInputData(data)
             .setConstraints(networkConstraints())
@@ -137,6 +140,6 @@ object Semetrics {
         .setRequiredNetworkType(NetworkType.CONNECTED)
         .build()
 
-    private fun workData(apiKey: String, endpoint: String, sourceId: String?): Data =
-        workDataOf("api_key" to apiKey, "endpoint" to endpoint, "source_id" to sourceId)
+    private fun workData(apiKey: String, endpoint: String, sourceId: String?, sourceVersion: String? = null): Data =
+        workDataOf("api_key" to apiKey, "endpoint" to endpoint, "source_id" to sourceId, "source_version" to sourceVersion)
 }

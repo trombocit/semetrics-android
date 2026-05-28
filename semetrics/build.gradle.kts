@@ -32,7 +32,7 @@ afterEvaluate {
                 from(components["release"])
                 groupId = "com.github.trombocit.semetrics-android"
                 artifactId = "semetrics"
-                version = "0.3.0"
+                version = "0.4.0"
             }
         }
     }

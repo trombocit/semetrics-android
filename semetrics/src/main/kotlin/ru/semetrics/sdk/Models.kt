@@ -11,7 +11,8 @@ internal data class EventPayload(
     @SerialName("user_id")      val userId: String?,
     @SerialName("anonymous_id") val anonymousId: String?,
     @SerialName("session_id")   val sessionId: String?,
-    @SerialName("source_id")    val sourceId: String?,
+    @SerialName("source_id")      val sourceId: String?,
+    @SerialName("source_version") val sourceVersion: String?,
     val platform: String = "android",
     @SerialName("sdk_version")  val sdkVersion: String = BuildConfig.SDK_VERSION,
     @SerialName("client_ts")    val clientTs: String,   // ISO-8601
@@ -38,5 +39,5 @@ internal data class ServerResponse(
 
 /** Версия SDK, подставляется через buildConfigField в build.gradle.kts */
 internal object BuildConfig {
-    const val SDK_VERSION = "0.3.0"
+    const val SDK_VERSION = "0.4.0"
 }

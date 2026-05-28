@@ -14,6 +14,7 @@ internal data class QueuedEvent(
     val anonymousId: String?,
     val sessionId: String?,
     val sourceId: String?,          // задаётся при инициализации SDK
+    val sourceVersion: String?,     // версия приложения/сервиса интегратора
     val propertiesJson: String?,    // JSON-строка словаря свойств
     val clientTs: String,           // ISO-8601
     val createdAt: Long = System.currentTimeMillis(),
@@ -40,7 +41,13 @@ private val MIGRATION_1_2 = object : Migration(1, 2) {
     }
 }
 
-@Database(entities = [QueuedEvent::class], version = 2, exportSchema = false)
+private val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE queued_events ADD COLUMN sourceVersion TEXT")
+    }
+}
+
+@Database(entities = [QueuedEvent::class], version = 3, exportSchema = false)
 internal abstract class EventDatabase : RoomDatabase() {
     abstract fun eventDao(): EventDao
 
@@ -53,7 +60,7 @@ internal abstract class EventDatabase : RoomDatabase() {
                     context.applicationContext,
                     EventDatabase::class.java,
                     "semetrics_queue.db",
-                ).addMigrations(MIGRATION_1_2).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
             }
     }
 }
