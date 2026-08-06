@@ -32,20 +32,19 @@ internal class SyncWorker(
 
         // Вычерпываем очередь целиком батчами по BATCH_SIZE, а не один батч за запуск —
         // иначе при всплеске трафика очередь растягивается на несколько periodic-циклов (15 мин каждый).
-        while (true) {
-            val events = dao.getBatch(BATCH_SIZE)
-            if (events.isEmpty()) return@withContext Result.success()
+        try {
+            while (true) {
+                val events = dao.getBatch(BATCH_SIZE)
+                if (events.isEmpty()) break
 
-            val payloads = events.map { it.toPayload() }
-
-            try {
-                transport.sendBatch(payloads)
+                transport.sendBatch(events.map { it.toPayload() })
                 dao.deleteByIds(events.map { it.id })
                 Log.d(TAG, "Отправлено ${events.size} событий.")
-            } catch (e: Exception) {
-                Log.w(TAG, "Ошибка отправки (попытка $runAttemptCount): ${e.message}")
-                return@withContext if (runAttemptCount < 3) Result.retry() else Result.failure()
             }
+            Result.success()
+        } catch (e: Exception) {
+            Log.w(TAG, "Ошибка отправки (попытка $runAttemptCount): ${e.message}")
+            if (runAttemptCount < 3) Result.retry() else Result.failure()
         }
     }
 
