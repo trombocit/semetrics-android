@@ -39,5 +39,5 @@ internal data class ServerResponse(
 
 /** Версия SDK, подставляется через buildConfigField в build.gradle.kts */
 internal object BuildConfig {
-    const val SDK_VERSION = "0.4.1"
+    const val SDK_VERSION = "0.4.2"
 }
