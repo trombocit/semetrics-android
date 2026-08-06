@@ -10,7 +10,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 
 private const val TAG = "SemetricsSync"
-private const val BATCH_SIZE = 50
+private const val BATCH_SIZE = 200
 
 /**
  * WorkManager worker — отправляет батч событий из Room на сервер.
@@ -30,19 +30,22 @@ internal class SyncWorker(
         val dao = db.eventDao()
         val transport = NetworkTransport(endpoint, apiKey)
 
-        val events = dao.getBatch(BATCH_SIZE)
-        if (events.isEmpty()) return@withContext Result.success()
+        // Вычерпываем очередь целиком батчами по BATCH_SIZE, а не один батч за запуск —
+        // иначе при всплеске трафика очередь растягивается на несколько periodic-циклов (15 мин каждый).
+        while (true) {
+            val events = dao.getBatch(BATCH_SIZE)
+            if (events.isEmpty()) return@withContext Result.success()
 
-        val payloads = events.map { it.toPayload() }
+            val payloads = events.map { it.toPayload() }
 
-        return@withContext try {
-            transport.sendBatch(payloads)
-            dao.deleteByIds(events.map { it.id })
-            Log.d(TAG, "Отправлено ${events.size} событий.")
-            Result.success()
-        } catch (e: Exception) {
-            Log.w(TAG, "Ошибка отправки (попытка $runAttemptCount): ${e.message}")
-            if (runAttemptCount < 3) Result.retry() else Result.failure()
+            try {
+                transport.sendBatch(payloads)
+                dao.deleteByIds(events.map { it.id })
+                Log.d(TAG, "Отправлено ${events.size} событий.")
+            } catch (e: Exception) {
+                Log.w(TAG, "Ошибка отправки (попытка $runAttemptCount): ${e.message}")
+                return@withContext if (runAttemptCount < 3) Result.retry() else Result.failure()
+            }
         }
     }
 
