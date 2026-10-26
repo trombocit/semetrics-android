@@ -20,7 +20,7 @@ dependencyResolutionManagement {
 `build.gradle.kts` (app):
 ```kotlin
 dependencies {
-    implementation("com.github.trombocit:semetrics-android:v0.4.3")
+    implementation("com.github.trombocit:semetrics-android:v0.5.0")
 }
 ```
 
