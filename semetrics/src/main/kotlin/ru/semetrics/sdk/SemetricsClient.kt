@@ -1,5 +1,6 @@
 package ru.semetrics.sdk
 
+import android.app.Application
 import android.content.Context
 import android.util.Log
 import androidx.work.*
@@ -12,9 +13,11 @@ import java.time.Instant
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 private const val TAG = "Semetrics"
 private const val WORK_NAME = "semetrics_periodic_sync"
+private const val FLUSH_WORK_NAME = "semetrics_flush"
 
 /**
  * Главный клиент Semetrics SDK для Android.
@@ -34,7 +37,9 @@ private const val WORK_NAME = "semetrics_periodic_sync"
  */
 object Semetrics {
 
-    private var config: Config? = null
+    @Volatile private var config: Config? = null
+    private val lifecycleRegistered = AtomicBoolean(false)
+    private val overflowLogged = AtomicBoolean(false)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val isoFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
         .withZone(ZoneOffset.UTC)
@@ -45,13 +50,17 @@ object Semetrics {
         val endpoint: String,
         val sourceId: String?,
         val sourceVersion: String?,
+        val maxQueueSize: Int,
     )
 
     // MARK: - Публичный API
 
     /**
      * Инициализация SDK. Вызывать один раз в Application.onCreate().
-     * Регистрирует WorkManager для периодической доставки.
+     * Регистрирует WorkManager для периодической доставки и автоматический flush
+     * при уходе приложения в фон и возврате из него.
+     *
+     * @param maxQueueSize максимум событий, ожидающих отправки; сверх лимита новые события отбрасываются.
      */
     fun configure(
         context: Context,
@@ -60,9 +69,11 @@ object Semetrics {
         sourceId: String? = null,
         sourceVersion: String? = null,
         syncIntervalMinutes: Long = 15,
+        maxQueueSize: Int = 10_000,
     ) {
-        config = Config(context.applicationContext, apiKey, endpoint, sourceId, sourceVersion)
+        config = Config(context.applicationContext, apiKey, endpoint, sourceId, sourceVersion, maxQueueSize)
         schedulePeriodicSync(context, apiKey, endpoint, syncIntervalMinutes)
+        registerLifecycleFlush(context)
         Log.d(TAG, "SDK инициализирован.")
     }
 
@@ -85,8 +96,15 @@ object Semetrics {
             ?.let { JSONObject(it as Map<*, *>).toString() }
 
         scope.launch {
-            val db = EventDatabase.getInstance(cfg.context)
-            db.eventDao().insert(
+            val dao = EventDatabase.getInstance(cfg.context).eventDao()
+            if (dao.count() >= cfg.maxQueueSize) {
+                if (overflowLogged.compareAndSet(false, true)) {
+                    Log.w(TAG, "Очередь переполнена (${cfg.maxQueueSize}), новые события отбрасываются.")
+                }
+                return@launch
+            }
+            overflowLogged.set(false)
+            dao.insert(
                 QueuedEvent(
                     eventName = eventName,
                     userId = userId,
@@ -103,6 +121,7 @@ object Semetrics {
 
     /**
      * Немедленно запустить синхронизацию (OneTimeWorkRequest).
+     * Если flush уже ждёт сети или выполняется — повторный вызов ничего не добавляет.
      */
     fun flush() {
         val cfg = config ?: return
@@ -111,7 +130,11 @@ object Semetrics {
             .setInputData(data)
             .setConstraints(networkConstraints())
             .build()
-        WorkManager.getInstance(cfg.context).enqueue(work)
+        WorkManager.getInstance(cfg.context).enqueueUniqueWork(
+            FLUSH_WORK_NAME,
+            ExistingWorkPolicy.KEEP,
+            work,
+        )
     }
 
     // MARK: - Приватные методы
@@ -129,11 +152,18 @@ object Semetrics {
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 1, TimeUnit.MINUTES)
             .build()
 
+        // UPDATE, а не KEEP: иначе смена apiKey/endpoint/интервала не применится к уже созданной задаче
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE,
             work,
         )
+    }
+
+    private fun registerLifecycleFlush(context: Context) {
+        val app = context.applicationContext as? Application ?: return
+        if (!lifecycleRegistered.compareAndSet(false, true)) return
+        app.registerActivityLifecycleCallbacks(AppVisibilityObserver { flush() })
     }
 
     private fun networkConstraints() = Constraints.Builder()

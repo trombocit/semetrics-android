@@ -23,6 +23,11 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
+    testOptions {
+        // android.util.Log в JVM-тестах возвращает значения по умолчанию вместо исключения
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 afterEvaluate {
@@ -32,7 +37,7 @@ afterEvaluate {
                 from(components["release"])
                 groupId = "com.github.trombocit.semetrics-android"
                 artifactId = "semetrics"
-                version = "0.4.3"
+                version = "0.5.0"
             }
         }
     }
@@ -56,4 +61,7 @@ dependencies {
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 }

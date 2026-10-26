@@ -61,13 +61,14 @@ Semetrics.track(
 | `sourceId` | `null` | Идентификатор источника (`applicationContext.packageName`) |
 | `sourceVersion` | `null` | Версия приложения (`BuildConfig.VERSION_NAME`) |
 | `syncIntervalMinutes` | `15` | Интервал периодической синхронизации |
+| `maxQueueSize` | `10_000` | Максимум событий, ожидающих отправки |
 
 ## Гарантия доставки
 
 - События сохраняются в **Room** (SQLite) до успешной отправки
 - **WorkManager** гарантирует запуск при наличии сети, даже после перезапуска устройства
-- Retry: exponential backoff через WorkManager (до 3 попыток, потом батч дропается)
-- Periodic sync каждые 15 минут (минимальный интервал WorkManager)
+- При сетевой ошибке и 5xx события остаются в очереди, retry с exponential backoff через WorkManager; при 4xx батч удаляется, чтобы не блокировать очередь
+- Periodic sync каждые 15 минут (минимальный интервал WorkManager) + автоматический flush при уходе в фон и возврате
 
 ## Принудительный flush
 

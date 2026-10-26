@@ -10,7 +10,14 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
 
-internal class TransportException(message: String) : Exception(message)
+/**
+ * Ошибка отправки с известной причиной.
+ * [retryable] = false — сервер не примет этот батч никогда (4xx, отказ в status.code), повторять бесполезно.
+ */
+internal class TransportException(message: String, val retryable: Boolean) : Exception(message)
+
+/** Временная ли HTTP-ошибка: таймаут, rate limit, ошибка сервера. */
+internal fun isRetryableStatus(code: Int): Boolean = code == 408 || code == 429 || code >= 500
 
 internal class NetworkTransport(
     private val endpoint: String,
@@ -38,12 +45,16 @@ internal class NetworkTransport(
         val response = client.newCall(request).execute()
         response.use { resp ->
             if (!resp.isSuccessful) {
-                throw TransportException("HTTP ${resp.code}: ${resp.message}")
+                throw TransportException("HTTP ${resp.code}: ${resp.message}", isRetryableStatus(resp.code))
             }
             val responseBody = resp.body?.string() ?: return@use
+            // Не-JSON ответ (captive portal, прокси) бросит SerializationException — это временная ошибка
             val serverResponse = json.decodeFromString<ServerResponse>(responseBody)
             if (serverResponse.status.code.isNotEmpty()) {
-                throw TransportException("Ошибка сервера: ${serverResponse.status.message ?: serverResponse.status.code}")
+                throw TransportException(
+                    "Ошибка сервера: ${serverResponse.status.message ?: serverResponse.status.code}",
+                    retryable = false,
+                )
             }
         }
     }
